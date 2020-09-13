@@ -1,3 +1,3 @@
 # graspy-personal
 
-Personal files related to graspy in some way
+Alex's personal exploration / scratch-work related to graspy

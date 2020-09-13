@@ -1,0 +1,21 @@
+# Graspy: package for doing statistical analysis on networks.
+Many people at hopkins working on statistical approaches for analyzing networks.
+
+- Graph embedding
+    Take a network, convert it into a set of points.
+    Each node in the graph is represented as a point in some space.
+- Statistical network model fitting/sampling
+    Think of e.g. multivariate normal as model for data. We have models specifically for networks.
+- Clustering
+- Graph matching
+    Find correspondence between nodes in networks across multiple graphs
+- Graph 2-sample testing
+    Two groups, how do we find out if these groups are meaningfully different under some model?
+    essentially hypothesis testing.
+
+
+# Graspologic
+- topologic
+    Another package, developed by microsoft research. Graspy/topologic will merge "graspologic"
+    soon, our code will start to get merged into their code. Later, these engineers will be reviewing our code.
+

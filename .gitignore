@@ -1,6 +1,7 @@
 # other random shit
 css/
 *.tex
+*.DS_store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

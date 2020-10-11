@@ -2,6 +2,7 @@
 css/
 *.tex
 *.DS_store
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -46,12 +46,6 @@ sns.heatmap(X)
 # %%
 
 
-bse = BaseSpectralEmbed(n_components=3)
-U, D, V = selectSVD(L, n_components=3)
-U.shape
-D.shape
-V.shape
-# %%
 # %%
 
 # A good initial choice of a is the value which makes the leading eigenvalues of LL and aXX^T equal, namely
@@ -71,12 +65,19 @@ X = ase.latent_left_
 
 scatter = plt.scatter(X[:, 0], X[:, 1], c=labels)
 plt.gcf().set_size_inches(5, 5)
-plt.gca().legend(*scatter.legend_elements())
+ax = plt.gca()
+ax.legend(*scatter.legend_elements())
+plt.xlim(-.05, .05)
+plt.ylim(-.05, .05)
 plt.title(r"Spectral embedding of $LL + aXX^T$")
-plt.savefig(
-    "/Users/alex/Dropbox/School/NDD/graspy-personal/figs/casc_working.png"
-)
+# plt.savefig(
+#     "/Users/alex/Dropbox/School/NDD/graspy-personal/figs/casc_working.png"
+# )
 
 # %%
-# heatmap(L_)
-heatmap(X@X.T)
+heatmap(L_)
+plt.title(r"$LL + aXX^T$")
+# heatmap(X@X.T)
+
+plt.savefig(
+    "/Users/alex/Dropbox/School/NDD/graspy-personal/figs/L_.png", bbox_inches="tight")

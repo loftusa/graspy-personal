@@ -61,18 +61,21 @@ def trial(p=.03, q=.015, m1=.8, m2=.02, assortative=True) -> dict:
     """
 
     # set up models
+    # TODO: enable other models
     assrttv_model = CASE(assortative=True, n_components=3, normalize=True)
     non_assrttv_model = CASE(assortative=False, n_components=3, normalize=True)
     cca_model = None
     reg_LSE_model = LSE(n_components=3, form="R-DAD", normalize=True)
     cov_LSE_model = clone(reg_LSE_model)
-    casc_models = {"assortative": assrttv_model,
-                   "non_assortative": non_assrttv_model,
-                   "LSE": reg_LSE_model,
-                   "Covariance LSE": cov_LSE_model}
+    casc_models = {"LSE": reg_LSE_model}
+    # casc_models = {"assortative": assrttv_model,
+    #                "non_assortative": non_assrttv_model,
+    #                "LSE": reg_LSE_model,
+    #                "Covariance LSE": cov_LSE_model}
 
     # generate data
-    A, labels = gen_sbm(p, q, assortative=assortative)
+    # TODO: change N
+    A, labels = gen_sbm(p, q, assortative=assortative, N=300)
     X = gen_covariates(labels, m1, m2)
 
     # fit, cluster, get misclustering rates
@@ -95,7 +98,7 @@ def trials(p=.03, q=.015, m1=.8, m2=.02, trial_type="", assortative=True):
     """
     vary within-minus between-block probability (p-q)
     """
-    num_trials = 25
+    num_trials = 6
     print(trial_type)
     if trial_type == "probability":
         max_diff = .025
@@ -170,3 +173,7 @@ plot_results(assortative_cov,
 
 plot_results(non_assortative_cov,
              ax=axs[1, 1], xlabel=xlabel, title=non_assortative_title)
+
+xlabel = "Covariate to graph block membership agreement"
+axs[2, 0].set_xlabel(xlabel)
+axs[2, 1].set_xlabel(xlabel)

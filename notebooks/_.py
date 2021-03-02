@@ -15,14 +15,49 @@ import seaborn as sns
 # %%
 
 
-def gen_covariates(m1, m2, labels):
-    # TODO: make sure labels is 1d array-like
-    n = len(labels)
-    m1_arr = np.random.choice([1, 0], p=[m1, 1 - m1], size=(n))
-    m2_arr = np.random.choice([1, 0], p=[m2, 1 - m2], size=(n, 3))
-    m2_arr[np.arange(n), labels] = m1_arr
-    return m2_arr
+def gen_covariates(labels, m1=0.8, m2=0.2, agreement=1, d=3):
+    """
+    n x 3 matrix of covariates.
+    just using the guys function from last year for this,
+    since I went through it and it seemed like it worked fine.
+    """
+    N = len(labels)
+    B = np.full((d, d), m2)
+    B[np.diag_indices_from(B)] = m1
+    base = np.eye(d)
+    membership = np.zeros((N, d))
+    n_misassign = 0
+    for i in range(0, N):
+        assign = bool(np.random.binomial(1, agreement))
+        if assign:
+            membership[i, :] = base[labels[i], :]
+        else:
+            membership[i, :] = base[(labels[i] + 1) % (max(labels) + 1), :]
+            n_misassign += 1
 
+    probs = membership @ B
+
+    covariates = np.zeros(probs.shape)
+    for i in range(N):
+        for j in range(d):
+            covariates[i, j] = np.random.binomial(1, probs[i, j])
+
+    return covariates
+
+
+N = 1000
+d = 2
+n = N // d
+n_blocks = n
+p, q = 0.03, 0.15
+B = np.array([[p, q, q], [q, p, q], [q, q, p]])
+
+B2 = np.array([[q, p, p], [p, q, p], [p, p, q]])
+
+A, labels = sbm([n, n, n], B, return_labels=True)
+L = gs.utils.to_laplacian(A, form="R-DAD")
+X = gen_covariates(labels, 0.9, 0.1, agreement=0.5, d=d)
+X
 
 # %%
 
@@ -67,8 +102,8 @@ scatter = plt.scatter(X[:, 0], X[:, 1], c=labels)
 plt.gcf().set_size_inches(5, 5)
 ax = plt.gca()
 ax.legend(*scatter.legend_elements())
-plt.xlim(-.05, .05)
-plt.ylim(-.05, .05)
+plt.xlim(-0.05, 0.05)
+plt.ylim(-0.05, 0.05)
 plt.title(r"Spectral embedding of $LL + aXX^T$")
 # plt.savefig(
 #     "/Users/alex/Dropbox/School/NDD/graspy-personal/figs/casc_working.png"
@@ -80,4 +115,5 @@ plt.title(r"$LL + aXX^T$")
 # heatmap(X@X.T)
 
 plt.savefig(
-    "/Users/alex/Dropbox/School/NDD/graspy-personal/figs/L_.png", bbox_inches="tight")
+    "/Users/alex/Dropbox/School/NDD/graspy-personal/figs/L_.png", bbox_inches="tight"
+)

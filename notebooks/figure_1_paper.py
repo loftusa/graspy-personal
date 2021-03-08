@@ -37,38 +37,30 @@ def gen_sbm(p, q, assortative=True, N=1500):
     return A
 
 
-def gen_covariates(labels, m1=0.8, m2=0.2, agreement=1, d=3):
-    """
-    n x 3 matrix of covariates.
-    just using the guys function from last year for this,
-    since I went through it and it seemed like it worked fine.
-    """
-    N = len(labels)
-    d = 3
-    B = np.full((d, d), m2)
-    B[np.diag_indices_from(B)] = m1
-    base = np.eye(d)
-    membership = np.zeros((N, d))
-    n_misassign = 0
-    for i in range(0, N):
-        assign = bool(np.random.binomial(1, agreement))
-        if assign:
-            membership[i, :] = base[labels[i], :]
-        else:
-            membership[i, :] = base[(labels[i] + 1) % (max(labels) + 1), :]
-            n_misassign += 1
+def partial_shuffle(labels, agreement=1):
+    # shuffle block memberships
+    n = len(labels)
+    k = round(n * (1 - agreement))
+    shuffled_idx = np.random.choice(n, k, replace=False)
+    for i in shuffled_idx:
+        choices = np.delete(np.unique(labels), labels[i])
+        choice = np.random.choice(choices)
+        labels[i] = choice
 
-    probs = membership @ B
-
-    covariates = np.zeros(probs.shape)
-    for i in range(N):
-        for j in range(d):
-            covariates[i, j] = np.random.binomial(1, probs[i, j])
-
-    return covariates
+    return labels.astype(int)
 
 
-# probs
+def gen_covariates(labels, m1=0.8, m2=0.2, agreement=1, ndim=3):
+    # shuffle based on block membership agreement
+    labels = partial_shuffle(labels, agreement=agreement)
+    n = len(labels)
+
+    # generate covariate matrix
+    m1_array = np.random.binomial(1, p=m1, size=n)
+    m2_array = np.random.binomial(1, p=m2, size=(n, ndim))
+    m2_array[np.arange(n), labels] = m1_array
+
+    return m2_array
 
 
 def get_misclustering(A, model, labels, covariates=None) -> float:
@@ -87,12 +79,19 @@ def get_misclustering(A, model, labels, covariates=None) -> float:
     return misclustering
 
 
-def trial(p=0.03, q=0.015, m1=0.8, m2=0.2, agreement=1, assort=True, algs=[]) -> dict:
+def trial(
+    p=0.03,
+    q=0.016,
+    m1=0.8,
+    m2=0.2,
+    agreement=1,
+    assort=True,
+    algs=[],
+) -> dict:
     """
     Return misclustering rates for all models under particular assumptions.
 
     """
-
     # debugging
     print(f"p: {p}, q: {q}")
     print(f"m1: {m1}, m2: {m2}")
@@ -102,16 +101,16 @@ def trial(p=0.03, q=0.015, m1=0.8, m2=0.2, agreement=1, assort=True, algs=[]) ->
 
     # set up models
     n_components = 3
-    n_subtrials = 16
+    n_subtrials = 8  # TODO
     N = 1500
     print(f"N={N}")
     print(f"n_subtrials: {n_subtrials}")
     # assrttv_model = CASE(embedding_alg="assortative", n_components=n_components)
     assrttv_model = CASE(
-        embedding_alg="assortative", n_components=n_components, tuning_runs=20
+        embedding_alg="assortative", n_components=n_components, tuning_runs=100
     )
     non_assrttv_model = CASE(
-        embedding_alg="non-assortative", n_components=n_components, tuning_runs=20
+        embedding_alg="non-assortative", n_components=n_components, tuning_runs=100
     )
     cca_model = CASE(embedding_alg="cca", n_components=n_components)
     reg_LSE_model = LSE(form="R-DAD", n_components=n_components, algorithm="full")
@@ -143,6 +142,8 @@ def trial(p=0.03, q=0.015, m1=0.8, m2=0.2, agreement=1, assort=True, algs=[]) ->
                 misclustering = get_misclustering(A, model, labels)
             elif name == "COV":
                 misclustering = get_misclustering(X @ X.T, model, labels)
+            else:
+                raise ValueError
 
             misclusterings[name] = misclustering
         return misclusterings
@@ -175,9 +176,8 @@ def membership_trials(
     assortative=True,
     algs=["LSE", "COV", "CCA", "assortative", "non_assortative"],
 ):
-    # algs = ["non_assortative"]
-    num_trials = 7
-    agreements = np.linspace(0.4, 1, num=num_trials)
+    num_trials = 8
+    agreements = np.linspace(0.3, 1, num=num_trials)
     results = np.zeros((num_trials, len(algs) + 1))
     results[:, 0] = agreements
     for i, agreement in enumerate(agreements):
@@ -193,7 +193,7 @@ def membership_trials(
 
 def trials(
     p=0.03,
-    q=0.015,
+    q=0.016,
     m1=0.8,
     m2=0.2,
     trial_type="",
@@ -203,16 +203,18 @@ def trials(
     """
     vary within-minus between-block probability (p-q)
     """
-    num_trials = 7
+    # num_trials = 2  # TODO
     # algs = ["LSE", "COV", "CCA"]
-    # algs = ["assortative", "non_assortative"]
+    # algs = ["assortative"]
     # algs = ["COV", "CCA"]
 
     # set trial parameters
     if trial_type == "probability":
+        num_trials = 6
         max_diff = 0.025
         x, y = p, q
     elif trial_type == "covariate":
+        num_trials = 7
         max_diff = 0.6
         x, y = m1, m2
     else:
@@ -235,6 +237,8 @@ def trials(
             misclusterings = trial(p=y, q=x, assort=assortative, algs=algs)
         elif trial_type == "covariate":
             misclusterings = trial(m1=y, m2=x, assort=assortative, algs=algs)
+        else:
+            raise ValueError
         for j, name in enumerate(misclusterings.keys()):
             j += 1  # to account for the xvals column
             results[i, j] = misclusterings[name]
@@ -246,7 +250,7 @@ def trials(
     return results
 
 
-def plot_results(results, ax=None, xlabel="", title=""):
+def plot_results(results, ax=None, xlim=None, xlabel="", title=""):
     if ax is None:
         ax = plt.gca()
 
@@ -271,7 +275,11 @@ def plot_results(results, ax=None, xlabel="", title=""):
             (line,) = ax.plot(X, results_[name], linetypes[name], label=name)
 
     ax.set(
-        xlabel=xlabel, ylabel="Average misclustering rate", title=title, ylim=(0, 0.7)
+        xlabel=xlabel,
+        ylabel="Average misclustering rate",
+        title=title,
+        xlim=xlim,
+        ylim=(0, 0.7),
     )
 
     fig = plt.gcf()
@@ -288,45 +296,60 @@ assortative_title = "Assortative graph, varying graph"
 non_assortative_title = "Non-assortative graph, varying graph"
 
 # plot probability trials
-#  assortative
+# assortative
 xlabel = "Within- minus between-block probability (p-q)"
-assortative_prob = trials(trial_type="probability", assortative=True)
-plot_results(assortative_prob, ax=axs[0, 0], xlabel=xlabel, title=assortative_title)
-plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
+# assortative_prob = trials(trial_type="probability", assortative=True)
+# plot_results(
+#     assortative_prob,
+#     ax=axs[0, 0],
+#     xlabel=xlabel,
+#     title=assortative_title,
+#     xlim=(0, 0.025),
+# )
+# plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
 # non-assortative
-non_assortative_prob = trials(trial_type="probability", assortative=False)
+non_assortative_prob = trials(
+    trial_type="probability", assortative=False, algs=["assortative"]
+)
 plot_results(
-    non_assortative_prob, ax=axs[0, 1], xlabel=xlabel, title=non_assortative_title
+    non_assortative_prob,
+    ax=axs[0, 1],
+    xlabel=xlabel,
+    title=non_assortative_title,
+    xlim=(0, 0.025),
 )
 plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
 # # plot covariate trials
 xlabel = "Difference in covariate probabilities (m1 - m2)"
 #  assortative
-assortative_cov = trials(trial_type="covariate", assortative=True)
-plot_results(assortative_cov, ax=axs[1, 0], xlabel=xlabel, title=assortative_title)
-plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
-
-#  non-assortative
-non_assortative_cov = trials(trial_type="covariate", assortative=False)
+assortative_cov = trials(
+    trial_type="covariate", assortative=True, algs=["non_assortative"]
+)
 plot_results(
-    non_assortative_cov, ax=axs[1, 1], xlabel=xlabel, title=non_assortative_title
+    assortative_cov, ax=axs[1, 0], xlabel=xlabel, title=assortative_title, xlim=(0, 0.6)
 )
 plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
-# plot membership trials
-# assortative
-xlabel = "Covariate to graph block membership agreement"
-membership_prob = membership_trials(assortative=True)
-plot_results(membership_prob, ax=axs[2, 0], xlabel=xlabel, title=assortative_title)
-plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
+# # non-assortative
+# non_assortative_cov = trials(trial_type="covariate", assortative=False)
+# plot_results(
+#     non_assortative_cov, ax=axs[1, 1], xlabel=xlabel, title=non_assortative_title, xlim=(0, 0.6)
+# )
+# plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
-# non-assortative
-membership_nonassort = membership_trials(assortative=False)
-plot_results(
-    membership_nonassort, ax=axs[2, 1], xlabel=xlabel, title=non_assortative_title
-)
+# # plot membership trials
+# # assortative
+# xlabel = "Covariate to graph block membership agreement"
+# membership_prob = membership_trials(assortative=True)
+# plot_results(membership_prob, ax=axs[2, 0], xlabel=xlabel, title=assortative_title, xlim=(0.4, 1.0))
+# plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
+
+# # non-assortative
+# membership_nonassort = membership_trials(assortative=False)
+# plot_results(
+#     membership_nonassort, ax=axs[2, 1], xlabel=xlabel, title=non_assortative_title, xlim=(0.4, 1.0))
 
 
 # figure legend

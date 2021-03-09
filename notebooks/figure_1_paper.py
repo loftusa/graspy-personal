@@ -107,10 +107,16 @@ def trial(
     print(f"n_subtrials: {n_subtrials}")
     # assrttv_model = CASE(embedding_alg="assortative", n_components=n_components)
     assrttv_model = CASE(
-        embedding_alg="assortative", n_components=n_components, tuning_runs=100
+        embedding_alg="assortative",
+        n_components=n_components,
+        tuning_runs=24,
+        verbose=100,
     )
     non_assrttv_model = CASE(
-        embedding_alg="non-assortative", n_components=n_components, tuning_runs=100
+        embedding_alg="non-assortative",
+        n_components=n_components,
+        tuning_runs=24,
+        verbose=100,
     )
     cca_model = CASE(embedding_alg="cca", n_components=n_components)
     reg_LSE_model = LSE(form="R-DAD", n_components=n_components, algorithm="full")
@@ -146,6 +152,7 @@ def trial(
                 raise ValueError
 
             misclusterings[name] = misclustering
+        print(f"misclusterings: {misclusterings}")
         return misclusterings
 
     minitrials_ = (delayed(minitrials)() for _ in range(n_subtrials))
@@ -298,20 +305,18 @@ non_assortative_title = "Non-assortative graph, varying graph"
 # plot probability trials
 # assortative
 xlabel = "Within- minus between-block probability (p-q)"
-# assortative_prob = trials(trial_type="probability", assortative=True)
-# plot_results(
-#     assortative_prob,
-#     ax=axs[0, 0],
-#     xlabel=xlabel,
-#     title=assortative_title,
-#     xlim=(0, 0.025),
-# )
-# plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
+assortative_prob = trials(trial_type="probability", assortative=True)
+plot_results(
+    assortative_prob,
+    ax=axs[0, 0],
+    xlabel=xlabel,
+    title=assortative_title,
+    xlim=(0, 0.025),
+)
+plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
 # non-assortative
-non_assortative_prob = trials(
-    trial_type="probability", assortative=False, algs=["assortative"]
-)
+non_assortative_prob = trials(trial_type="probability", assortative=False)
 plot_results(
     non_assortative_prob,
     ax=axs[0, 1],
@@ -324,32 +329,45 @@ plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 # # plot covariate trials
 xlabel = "Difference in covariate probabilities (m1 - m2)"
 #  assortative
-assortative_cov = trials(
-    trial_type="covariate", assortative=True, algs=["non_assortative"]
-)
+assortative_cov = trials(trial_type="covariate", assortative=True)
 plot_results(
     assortative_cov, ax=axs[1, 0], xlabel=xlabel, title=assortative_title, xlim=(0, 0.6)
 )
 plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
-# # non-assortative
-# non_assortative_cov = trials(trial_type="covariate", assortative=False)
-# plot_results(
-#     non_assortative_cov, ax=axs[1, 1], xlabel=xlabel, title=non_assortative_title, xlim=(0, 0.6)
-# )
-# plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
+# non-assortative
+non_assortative_cov = trials(trial_type="covariate", assortative=False)
+plot_results(
+    non_assortative_cov,
+    ax=axs[1, 1],
+    xlabel=xlabel,
+    title=non_assortative_title,
+    xlim=(0, 0.6),
+)
+plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
-# # plot membership trials
-# # assortative
-# xlabel = "Covariate to graph block membership agreement"
-# membership_prob = membership_trials(assortative=True)
-# plot_results(membership_prob, ax=axs[2, 0], xlabel=xlabel, title=assortative_title, xlim=(0.4, 1.0))
-# plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
+# plot membership trials
+# assortative
+xlabel = "Covariate to graph block membership agreement"
+membership_prob = membership_trials(assortative=True)
+plot_results(
+    membership_prob,
+    ax=axs[2, 0],
+    xlabel=xlabel,
+    title=assortative_title,
+    xlim=(0.4, 1.0),
+)
+plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
-# # non-assortative
-# membership_nonassort = membership_trials(assortative=False)
-# plot_results(
-#     membership_nonassort, ax=axs[2, 1], xlabel=xlabel, title=non_assortative_title, xlim=(0.4, 1.0))
+# non-assortative
+membership_nonassort = membership_trials(assortative=False)
+plot_results(
+    membership_nonassort,
+    ax=axs[2, 1],
+    xlabel=xlabel,
+    title=non_assortative_title,
+    xlim=(0.4, 1.0),
+)
 
 
 # figure legend

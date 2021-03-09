@@ -20,28 +20,29 @@ np.set_printoptions(threshold=sys.maxsize)
 #%%
 def partial_shuffle(labels, agreement=1):
     # shuffle block memberships
-    labels = labels.copy()
     n = len(labels)
     k = round(n * (1 - agreement))
-    unique_labels = np.unique(labels)
-    shuffled = np.random.choice(n, k, replace=False)
-    for i, label in enumerate(labels[shuffled]):
-        choices = np.delete(np.unique(labels), label)
+    shuffled_idx = np.random.choice(n, k, replace=False)
+    for i in shuffled_idx:
+        choices = np.delete(np.unique(labels), labels[i])
         choice = np.random.choice(choices)
-        labels[shuffled][i] = choice
+        labels[i] = choice
 
     return labels.astype(int)
 
 
 def gen_covariates(labels, m1=0.8, m2=0.2, agreement=1, ndim=3):
     # shuffle based on block membership agreement
+    labels_ = labels.copy()
     labels = partial_shuffle(labels, agreement=agreement)
+    print(1-(np.count_nonzero(labels - labels_) / len(labels)))
     n = len(labels)
 
     # generate covariate matrix
     m1_array = np.random.binomial(1, p=m1, size=n)
     m2_array = np.random.binomial(1, p=m2, size=(n, ndim))
     m2_array[np.arange(n), labels] = m1_array
+
 
     return m2_array
 
@@ -53,8 +54,8 @@ agreement = 0.8
 n_blocks = 3
 B = np.array([[p, q, q], [q, p, q], [q, q, p]])
 A, labels = sbm([n, n, n], B, return_labels=True)
-X = gen_covariates(labels, m1, m2)
-case = CASE(n_components=3)
+X = gen_covariates(labels, m1, m2, agreement=.8)
+case = CASE(n_components=3, verbose=100)
 
 latents = case.fit_transform(A, covariates=X)
 pairplot(latents, labels=labels)

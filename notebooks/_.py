@@ -1,196 +1,138 @@
-# %%
-# gonna do this in code as I read
-
-from graspologic.embed.ase import AdjacencySpectralEmbed
-from graspologic.embed.svd import selectSVD
-from graspologic.embed.base import BaseSpectralEmbed
+#%%
 import numpy as np
-import graspologic as gs
-from graspologic.simulations import sbm
-from graspologic.plot import heatmap, pairplot
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import pytest
 from graspologic.embed import CovariateAssistedEmbedding as CASE
+from graspologic.simulations import sbm
+from graspologic.plot import heatmap, pairplot, pairplot_with_gmm
 
-import sys
-
-np.set_printoptions(threshold=sys.maxsize)
-
-#%%
-def partial_shuffle(labels, agreement=1):
-    # shuffle block memberships
-    n = len(labels)
-    k = round(n * (1 - agreement))
-    shuffled_idx = np.random.choice(n, k, replace=False)
-    for i in shuffled_idx:
-        choices = np.delete(np.unique(labels), labels[i])
-        choice = np.random.choice(choices)
-        labels[i] = choice
-
-    return labels.astype(int)
+# from tests.test_casc import gen_covariates
+from sklearn.metrics import pairwise_distances
+from sklearn.model_selection import train_test_split
+from sklearn.cluster import KMeans
+import seaborn as sns
 
 
-def gen_covariates(labels, m1=0.8, m2=0.2, agreement=1, ndim=3):
-    # shuffle based on block membership agreement
-    labels_ = labels.copy()
-    labels = partial_shuffle(labels, agreement=agreement)
-    print(1-(np.count_nonzero(labels - labels_) / len(labels)))
-    n = len(labels)
+def gen_covariates(labels, m1=0.8, m2=0.2, agreement=1, d=3):
+    """
+    n x 3 matrix of covariates
 
-    # generate covariate matrix
-    m1_array = np.random.binomial(1, p=m1, size=n)
-    m2_array = np.random.binomial(1, p=m2, size=(n, ndim))
-    m2_array[np.arange(n), labels] = m1_array
+    """
+    N = len(labels)
+    d = 3
+    B = np.full((d, d), m2)
+    B[np.diag_indices_from(B)] = m1
+    base = np.eye(d)
+    membership = np.zeros((N, d))
+    n_misassign = 0
+    for i in range(0, N):
+        assign = bool(np.random.binomial(1, agreement))
+        if assign:
+            membership[i, :] = base[labels[i], :]
+        else:
+            membership[i, :] = base[(labels[i] + 1) % (max(labels) + 1), :]
+            n_misassign += 1
+
+    probs = membership @ B
+
+    covariates = np.zeros(probs.shape)
+    for i in range(N):
+        for j in range(d):
+            covariates[i, j] = np.random.binomial(1, probs[i, j])
+
+    return covariates
 
 
-    return m2_array
+def get_misclustering(A, model, labels, covariates=None) -> float:
+    if covariates is None:
+        Xhat = model.fit_transform(A)
+    else:
+        Xhat = model.fit_transform(A, covariates=covariates)
+
+    kmeans = KMeans(n_clusters=3)
+    labels_ = kmeans.fit_predict(Xhat)
+
+    # to account for nonidentifiability
+    labels_ = remap_labels(labels, labels_)
+    misclustering = np.count_nonzero(labels - labels_) / len(labels)
+
+    return misclustering
 
 
-p, q = 0.03, 0.015
-m1, m2 = 0.8, 0.2
+from graspologic.simulations import sbm
+from graspologic.utils import remap_labels
+from graspologic.plot import pairplot
+from graspologic.embed import CovariateAssistedEmbedding
+import seaborn as sns
+
 n = 500
-agreement = 0.8
-n_blocks = 3
-B = np.array([[p, q, q], [q, p, q], [q, q, p]])
-A, labels = sbm([n, n, n], B, return_labels=True)
-X = gen_covariates(labels, m1, m2, agreement=.8)
-case = CASE(n_components=3, verbose=100)
-
-latents = case.fit_transform(A, covariates=X)
-pairplot(latents, labels=labels)
-#%%
+assortative = True
 p, q = 0.03, 0.015
-n = 500
-agreement = 0.8
-B = np.array([[p, q, q], [q, p, q], [q, q, p]])
-A, labels = sbm([n, n, n], B, return_labels=True)
-labels_ = partial_shuffle(labels, agreement=agreement)
-labels = labels.copy()
-n = len(labels)
-k = round(n * (1 - agreement))
-unique_labels = np.unique(labels)
-labels_ = np.copy(labels)
-shuffled = np.random.choice(n, k, replace=False)
-np.roll(labels, shift=-1)[shuffled]
-# labels_[shuffled] = np.roll(labels_, shift=-1)[shuffled]
-
-np.roll(np.unique(labels), shift=-1)
-labels_[shuffled] = np.roll(np.unique(labels), shift=-1)
-
-# np.roll(labels, shift=-1)
-# labels_
-# C_ = gen_covariates(0.8, 0.2, labels_)
-# sns.heatmap(C_)
-# labels_ = labels.copy()
-# heatmap(A)
-# sns.heatmap(C)
-
-# ndim=3
-# labels = np.repeat([0, 1, 2], 3)
-# labels
-# partial_shuffle(labeldds, 1)
-
-#%%
-# def gen_covariates(labels, m1=0.8, m2=0.2, agreement=1, d=3):
-#     """
-#     n x 3 matrix of covariates.
-#     just using the guys function from last year for this,
-#     since I went through it and it seemed like it worked fine.
-#     """
-#     N = len(labels)
-#     B = np.full((d, d), m2)
-#     B[np.diag_indices_from(B)] = m1
-#     base = np.eye(d)
-#     membership = np.zeros((N, d))
-#     n_misassign = 0
-#     for i in range(0, N):
-#         assign = bool(np.random.binomial(1, agreement))
-#         if assign:
-#             membership[i, :] = base[labels[i], :]
-#         else:
-#             membership[i, :] = base[(labels[i] + 1) % (max(labels) + 1), :]
-#             n_misassign += 1
-
-#     probs = membership @ B
-
-#     covariates = np.zeros(probs.shape)
-#     for i in range(N):
-#         for j in range(d):
-#             covariates[i, j] = np.random.binomial(1, probs[i, j])
-
-#     return covariates
-
-
-N = 1000
-d = 2
-n = N // d
-n_blocks = n
-p, q = 0.03, 0.15
-B = np.array([[p, q, q], [q, p, q], [q, q, p]])
-
-B2 = np.array([[q, p, p], [p, q, p], [p, p, q]])
-
-A, labels = sbm([n, n, n], B, return_labels=True)
-L = gs.utils.to_laplacian(A, form="R-DAD")
-X = gen_covariates(labels, 0.9, 0.1, agreement=0.5, d=d)
-X
-
-# %%
-
-n = 200
-n_communities = 3
-p, q = 0.9, 0.3
-B = np.array([[p, q, q], [q, p, q], [q, q, p]])
-
-B2 = np.array([[q, p, p], [p, q, p], [p, p, q]])
-
-A, labels = sbm([n, n, n], B, return_labels=True)
-N = A.shape[0]
-L = gs.utils.to_laplace(A, form="R-DAD")
-X = gen_covariates(0.9, 0.1, labels)
-
-
-heatmap(L)
-# heatmap(L)
-# %%
-sns.heatmap(X)
-# %%
-
-
-# %%
-
-# A good initial choice of a is the value which makes the leading eigenvalues of LL and aXX^T equal, namely
-# a_0 = \lambda_1 (LL) / \lambda_1 (XX^T)
-Lsquared = L @ L
-Lleading = sorted(np.linalg.eigvals(Lsquared), reverse=True)[0]
-Xleading = sorted(np.linalg.eigvals(X @ X.T), reverse=True)[0]
-a = np.float(Lleading / Xleading)
-L_ = (L @ L) + (a * (X @ X.T))
-# heatmap(L_)
-# heatmap(Lsquared)
-# heatmap(X @ X.T)
-
-ase = AdjacencySpectralEmbed(n_components=2)
-ase._reduce_dim(L)
-X = ase.latent_left_
-
-scatter = plt.scatter(X[:, 0], X[:, 1], c=labels)
-plt.gcf().set_size_inches(5, 5)
-ax = plt.gca()
-ax.legend(*scatter.legend_elements())
-plt.xlim(-0.05, 0.05)
-plt.ylim(-0.05, 0.05)
-plt.title(r"Spectral embedding of $LL + aXX^T$")
-# plt.savefig(
-#     "/Users/alex/Dropbox/School/NDD/graspy-personal/figs/casc_working.png"
-# )
-
-# %%
-heatmap(L_)
-plt.title(r"$LL + aXX^T$")
-# heatmap(X@X.T)
-
-plt.savefig(
-    "/Users/alex/Dropbox/School/NDD/graspy-personal/figs/L_.png", bbox_inches="tight"
+if not assortative:
+    p, q = q, p
+A, labels = sbm(
+    [n, n, n],
+    p=[[p, q, q], [q, p, q], [q, q, p]],
+    return_labels=True,
 )
+#%%
+# X = gen_covariates(labels, m1=0.8, m2=0.2, agreement=0.0)
+X = gen_covariates(labels, m1=0.8, m2=0.2, agreement=1)
+case = CovariateAssistedEmbedding(n_components=3, embedding_alg="assortative")
+case.fit(A, covariates=X)
+
+#%%
+Xhat = case.latent_left_
+pairplot(Xhat, labels=labels)
+
+
+# # def M():
+# #     # module scope ensures that A and labels will always match
+# #     # since they exist in separate functions
+
+# #     # parameters
+# #     n = 100
+# #     p, q = 0.9, 0.3
+
+# #     # block probability matirx
+# #     P = np.full((2, 2), p)
+# #     P[np.diag_indices_from(P)] = q
+
+# #     # generate sbm
+# #     directed = False
+# #     return sbm([n] * 2, P, directed=directed, return_labels=True)
+
+
+# # def X(M):
+# #     _, labels = M
+# #     m1, m2 = 0.8, 0.3
+# #     return gen_covariates(m1, m2, labels, type="many")
+
+
+# # M = M()
+# # X = X(M)
+# # A, labels = M
+# # case = CASE(assortative=False)
+# # case.fit(A, X)
+# # latent = case.latent_left_
+# # latent
+# # # separate into communities
+# # df = pd.DataFrame(
+# #     {
+# #         "Type": labels,
+# #         "Dimension 1": latent[:, 0],
+# #         "Dimension 2": latent[:, 1],
+# #     }
+# # )
+
+# # # Average per-group
+# # means = df.groupby("Type").mean()
+
+
+# # # train a GMM, compare with true labels
+# # predicted = GaussianMixture(n_components=2).fit_predict(latent)
+
+
+# # # avg_dist_within = np.diag(pairwise_distances(means, oos_left))
+# # avg_dist_between = np.diag(pairwise_distances(means, oos_right))
+# # self.assertTrue(all(avg_dist_within < avg_dist_between))

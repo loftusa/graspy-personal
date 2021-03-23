@@ -369,8 +369,6 @@ plt.rcParams["xtick.top"] = True
 plt.rcParams["xtick.direction"] = "in"
 plt.rcParams["ytick.direction"] = "in"
 plt.rcParams["ytick.right"] = True
-assortative_title = "Assortative graph, varying graph"
-non_assortative_title = "Non-assortative graph, varying graph"
 
 # plot probability trials
 # assortative
@@ -378,6 +376,7 @@ non_assortative_title = "Non-assortative graph, varying graph"
 algs = ["LSE", "COV", "CCA", "assortative", "non_assortative"]
 # algs = ["COV"]
 
+assortative_title = "Assortative graph, varying graph"
 xlabel = "Within- minus between-block probability (p-q)"
 assortative_prob = trials(trial_type="probability", assortative=True, algs=algs)
 plot_results(
@@ -390,6 +389,7 @@ plot_results(
 plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
 # non-assortative
+non_assortative_title = "Non-assortative graph, varying graph"
 non_assortative_prob = trials(trial_type="probability", assortative=False, algs=algs)
 plot_results(
     non_assortative_prob,
@@ -401,6 +401,7 @@ plot_results(
 plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
 # plot covariate trials
+assortative_title = "Assortative graph, varying covariates"
 xlabel = "Difference in covariate probabilities (m1 - m2)"
 #  assortative
 assortative_cov = trials(trial_type="covariate", assortative=True, algs=algs)
@@ -410,6 +411,7 @@ plot_results(
 plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
 # non-assortative
+non_assortative_title = "Non-assortative graph, varying covariates"
 non_assortative_cov = trials(trial_type="covariate", assortative=False, algs=algs)
 plot_results(
     non_assortative_cov,
@@ -422,6 +424,7 @@ plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
 # plot membership trials
 # assortative
+assortative_title = "Assortative graph, varying membership"
 xlabel = "Covariate to graph block membership agreement"
 membership_prob = membership_trials(assortative=True, algs=algs)
 plot_results(
@@ -435,6 +438,7 @@ plot_results(
 plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
 
 # non-assortative
+non_assortative_title = "Non-assortative graph, varying membership"
 membership_nonassort = membership_trials(assortative=False, algs=algs)
 plot_results(
     membership_nonassort,
@@ -451,5 +455,3 @@ labels = [i if i != "COV" else "COV (long dash)" for i in labels]
 fig.legend(handles, labels, loc=(0.85, 0.9))
 
 plt.savefig("../figs/figure1_paper.png", bbx_inches="tight")
-
-# %%
